@@ -6,7 +6,7 @@ This file creates your application.
 """
 import os
 from app import app
-from flask import render_template, request, redirect, url_for, flash, session, abort
+from flask import render_template, request, redirect, url_for, flash, session, abort, send_from_directory
 from .forms import UploadForm
 from werkzeug.utils import secure_filename
 
@@ -38,19 +38,39 @@ def upload():
         return render_template('upload.html', form=form)
 
     # Validate file upload on submit
-    if request.method == 'POST' and form.validate_on_submit():
+    if request.method == 'POST':
+        if form.validate_on_submit():
         # Get file data and save to your uploads folder
-        image = form.image.data
-        filename = secure_filename(image.filename)
-
-        filename = secure_filename(image.filename)
-        image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
-        flash('File Saved', 'success')
-        return redirect(url_for('home'))
+            image = form.image.data
+            filename = secure_filename(image.filename)
+            image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            flash('File Saved', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash_errors(form)
 
     return render_template('upload.html')
 
+def get_uploaded_images():
+    rootdir = os.getcwd()
+    uploadLst = []
+    for subdir, dirs, files in os.walk(rootdir + '/uploads'):
+        for file in files:
+            uploadLst.append(file)
+    uploadLst.pop(1)
+    return uploadLst
+
+@app.route('/uploads/<filename>')
+def get_image(filename):
+    rootdir = os.getcwd()
+    return send_from_directory(os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER']), filename)
+
+@app.route('/files')
+def files():
+    if not session.get('logged_in'):
+        abort(401)
+    pictures = get_uploaded_images()
+    return render_template('files.html', pictures=pictures)
 
 @app.route('/login', methods=['POST', 'GET'])
 def login():
